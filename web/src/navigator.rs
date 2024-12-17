@@ -208,38 +208,36 @@ impl NavigatorBackend for WebNavigatorBackend {
 
         let window = window().expect("window()");
 
-        
-
         let final_url = if url.scheme() != "javascript" { 
-            match self.open_url_mode.handle(resolved_url.as_str()) {
+            match self.open_url_mode.handle(url.as_str()) {
                 OpenUrlOutcome::Mode(OpenUrlMode::Deny) => {
-                    tracing::warn!("Opening a website is denied: {}", resolved_url);
+                    tracing::warn!("Opening a website is denied: {}", url);
                     return; // Blocked outright
                 }
                 OpenUrlOutcome::Mode(OpenUrlMode::Confirm) => {
-                    let message = format!("The SWF file wants to open the website {}", resolved_url);
+                    let message = format!("The SWF file wants to open the website {}", url);
                     let confirm = window
                         .confirm_with_message(&message)
                         .expect("Failed to show confirmation dialog");
 
                     if confirm {
-                        tracing::info!("User confirmed opening URL: {}", resolved_url);
-                        resolved_url.to_string()
+                        tracing::info!("User confirmed opening URL: {}", url);
+                        url.to_string()
                     } else {
-                        tracing::info!("User declined opening URL: {}", resolved_url);
+                        tracing::info!("User declined opening URL: {}", url);
                         return;
                     }
                 }
                 OpenUrlOutcome::Mode(OpenUrlMode::Allow) => {
-                    tracing::info!("Opening URL: {}", resolved_url);
-                    resolved_url.to_string()
+                    tracing::info!("Opening URL: {}", url);
+                    url.to_string()
                 }
                 OpenUrlOutcome::Redirect(new_url) => {
                     tracing::info!("Redirecting to: {}", new_url);
                     new_url
                 }
             } 
-        } else { resolved_url.to_string() };
+        } else { url.to_string() };
 
         // TODO: Should we return a result for failed opens? Does Flash care?
         match vars_method {

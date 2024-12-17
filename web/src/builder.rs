@@ -1,5 +1,5 @@
 use crate::external_interface::JavascriptInterface;
-use crate::navigator::{OpenUrlMode, WebNavigatorBackend};
+use crate::navigator::{OpenUrlMode, OpenUrlModeHandler, WebNavigatorBackend};
 use crate::{
     audio, log_adapter, storage, ui, JavascriptPlayer, RuffleHandle, SocketProxy,
     RUFFLE_GLOBAL_PANIC,
@@ -53,7 +53,7 @@ pub struct RuffleInstanceBuilder {
     pub(crate) max_execution_duration: Duration,
     pub(crate) player_version: Option<u8>,
     pub(crate) preferred_renderer: Option<String>, // TODO: Enumify?
-    pub(crate) open_url_mode: OpenUrlMode,
+    pub(crate) open_url_mode: OpenUrlModeHandler,
     pub(crate) allow_networking: NetworkingAccessMode,
     pub(crate) socket_proxy: Vec<SocketProxy>,
     pub(crate) credential_allow_list: Vec<String>,
@@ -89,7 +89,7 @@ impl Default for RuffleInstanceBuilder {
             max_execution_duration: Duration::from_secs_f64(15.0),
             player_version: None,
             preferred_renderer: None,
-            open_url_mode: OpenUrlMode::Allow,
+            open_url_mode: OpenUrlModeHandler::Static(OpenUrlMode::Allow),
             allow_networking: NetworkingAccessMode::All,
             socket_proxy: vec![],
             credential_allow_list: vec![],
@@ -247,9 +247,9 @@ impl RuffleInstanceBuilder {
     #[wasm_bindgen(js_name = "setOpenUrlMode")]
     pub fn set_open_url_mode(&mut self, value: &str) {
         self.open_url_mode = match value {
-            "allow" => OpenUrlMode::Allow,
-            "confirm" => OpenUrlMode::Confirm,
-            "deny" => OpenUrlMode::Deny,
+            "allow" => OpenUrlModeHandler::Static(OpenUrlMode::Allow),
+            "confirm" => OpenUrlModeHandler::Static(OpenUrlMode::Confirm),
+            "deny" => OpenUrlModeHandler::Static(OpenUrlMode::Deny),
             _ => return,
         };
     }
