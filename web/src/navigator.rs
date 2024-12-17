@@ -48,13 +48,38 @@ pub enum OpenUrlMode {
     Deny,
 }
 
+pub enum OpenUrlModeHandler {
+    Static(OpenUrlMode),
+    ModeFunction(Arc<dyn Fn(&str) -> OpenUrlMode + Send + Sync>),
+    RedirectFunction(Arc<dyn Fn(&str) -> String + Send + Sync>),
+}
+
+// Outcome after processing the handler
+pub enum OpenUrlOutcome {
+    Mode(OpenUrlMode), // Allow, Deny, Confirm
+    Redirect(String),  // Redirected to a new URL
+}
+
+impl OpenUrlModeHandler {
+    // Process the handler and return the outcome
+    pub fn handle(&self, url: &str) -> OpenUrlOutcome {
+        match self {
+            OpenUrlModeHandler::Static(mode) => OpenUrlOutcome::Mode(*mode),
+            OpenUrlModeHandler::ModeFunction(func) => OpenUrlOutcome::Mode(func(url)),
+            OpenUrlModeHandler::RedirectFunction(func) => {
+                OpenUrlOutcome::Redirect(func(url))
+            }
+        }
+    }
+}
+
 pub struct WebNavigatorBackend {
     log_subscriber: Arc<Layered<WASMLayer, Registry>>,
     allow_script_access: bool,
     allow_networking: NetworkingAccessMode,
     upgrade_to_https: bool,
     base_url: Option<Url>,
-    open_url_mode: OpenUrlMode,
+    open_url_mode: OpenUrlModeHandler,
     socket_proxies: Vec<SocketProxy>,
     credential_allow_list: Vec<String>,
     player: Weak<Mutex<Player>>,
@@ -68,7 +93,7 @@ impl WebNavigatorBackend {
         upgrade_to_https: bool,
         base_url: Option<String>,
         log_subscriber: Arc<Layered<WASMLayer, Registry>>,
-        open_url_mode: OpenUrlMode,
+        open_url_mode: OpenUrlModeHandler,
         socket_proxies: Vec<SocketProxy>,
         credential_allow_list: Vec<String>,
     ) -> Self {
@@ -183,25 +208,38 @@ impl NavigatorBackend for WebNavigatorBackend {
 
         let window = window().expect("window()");
 
-        if url.scheme() != "javascript" {
-            if self.open_url_mode == OpenUrlMode::Confirm {
-                let message = format!("The SWF file wants to open the website {}", &url);
-                // TODO: Add a checkbox with a GUI toolkit
-                let confirm = window
-                    .confirm_with_message(&message)
-                    .expect("confirm_with_message()");
-                if !confirm {
-                    tracing::info!(
-                        "SWF tried to open a website, but the user declined the request"
-                    );
-                    return;
+        
+
+        let final_url = if url.scheme() != "javascript" { 
+            match self.open_url_mode.handle(resolved_url.as_str()) {
+                OpenUrlOutcome::Mode(OpenUrlMode::Deny) => {
+                    tracing::warn!("Opening a website is denied: {}", resolved_url);
+                    return; // Blocked outright
                 }
-            } else if self.open_url_mode == OpenUrlMode::Deny {
-                tracing::warn!("SWF tried to open a website, but opening a website is not allowed");
-                return;
-            }
-            // If the user confirmed or if in `Allow` mode, open the website.
-        }
+                OpenUrlOutcome::Mode(OpenUrlMode::Confirm) => {
+                    let message = format!("The SWF file wants to open the website {}", resolved_url);
+                    let confirm = window
+                        .confirm_with_message(&message)
+                        .expect("Failed to show confirmation dialog");
+
+                    if confirm {
+                        tracing::info!("User confirmed opening URL: {}", resolved_url);
+                        resolved_url.to_string()
+                    } else {
+                        tracing::info!("User declined opening URL: {}", resolved_url);
+                        return;
+                    }
+                }
+                OpenUrlOutcome::Mode(OpenUrlMode::Allow) => {
+                    tracing::info!("Opening URL: {}", resolved_url);
+                    resolved_url.to_string()
+                }
+                OpenUrlOutcome::Redirect(new_url) => {
+                    tracing::info!("Redirecting to: {}", new_url);
+                    new_url
+                }
+            } 
+        } else { resolved_url.to_string() };
 
         // TODO: Should we return a result for failed opens? Does Flash care?
         match vars_method {
@@ -244,9 +282,9 @@ impl NavigatorBackend for WebNavigatorBackend {
             }
             None => {
                 if target.is_empty() {
-                    let _ = window.location().assign(url.as_str());
+                    let _ = window.location().assign(&final_url);
                 } else {
-                    let _ = window.open_with_url_and_target(url.as_str(), target);
+                    let _ = window.open_with_url_and_target(&final_url, target);
                 }
             }
         };
