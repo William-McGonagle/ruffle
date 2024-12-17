@@ -48,6 +48,7 @@ pub enum OpenUrlMode {
     Deny,
 }
 
+#[derive(Debug, Clone)]
 pub enum OpenUrlModeHandler {
     Static(OpenUrlMode),
     ModeFunction(Arc<dyn Fn(&str) -> OpenUrlMode + Send + Sync>),
