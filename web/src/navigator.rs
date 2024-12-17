@@ -31,6 +31,7 @@ use web_sys::{
     window, Blob, BlobPropertyBag, HtmlFormElement, HtmlInputElement, Request as WebRequest,
     RequestCredentials, RequestInit, Response as WebResponse,
 };
+use std::fmt;
 
 /// The handling mode of links opening a new website.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
