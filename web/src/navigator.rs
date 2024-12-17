@@ -55,6 +55,15 @@ pub enum OpenUrlModeHandler {
     RedirectFunction(Arc<dyn Fn(&str) -> String + Send + Sync>),
 }
 
+impl fmt::Debug for OpenUrlModeHandler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OpenUrlModeHandler::ModeFunction(_) => f.write_str("ModeFunction(<Fn>)"),
+            OpenUrlModeHandler::RedirectFunction(_) => f.write_str("RedirectFunction(<Fn>)"),
+        }
+    }
+}
+
 // Outcome after processing the handler
 pub enum OpenUrlOutcome {
     Mode(OpenUrlMode), // Allow, Deny, Confirm

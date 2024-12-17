@@ -603,7 +603,7 @@ impl RuffleInstanceBuilder {
             self.upgrade_to_https,
             self.base_url.clone(),
             log_subscriber.clone(),
-            self.open_url_mode,
+            self.open_url_mode.clone(),
             self.socket_proxy.clone(),
             self.credential_allow_list.clone(),
         )
