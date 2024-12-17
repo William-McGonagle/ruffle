@@ -587,10 +587,14 @@ export interface BaseLoadOptions {
 
     /**
      * The handling mode of links opening a new website.
+     * 
+     * Set as a function, `(url:string) => OpenURLMode` or `(url:string) => string`, 
+     * to get more direct control over what URLs are opened or redirected to. A common
+     * use-case is redirect windows.
      *
      * @default OpenURLMode.Allow
      */
-    openUrlMode?: OpenURLMode;
+    openUrlMode?: OpenURLMode | ((string) => OpenURLMode) | ((string) => string);
 
     /**
      * Which flash networking APIs may be accessed.
